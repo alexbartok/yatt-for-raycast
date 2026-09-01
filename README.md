@@ -118,7 +118,7 @@ Open them with ⌘, in Raycast or from the ⌘K menu in Convert Time. Changes ap
 
 ## Using two Macs
 
-Raycast syncs your settings between Macs; an extension's own data stays on the Mac where it was created, and that includes the location list. To share it, point **Locations file** at a path inside a synced folder, for example `~/Library/Mobile Documents/com~apple~CloudDocs/Raycast/yatt.json`. The extension then reads and writes that file instead of its local store.
+Raycast syncs your settings between Macs; an extension's own data stays on the Mac where it was created, and that includes the location list. To share it, point **Locations file** at a path inside a synced folder, for example `~/Library/Mobile Documents/com~apple~CloudDocs/Raycast/yatt.json`. The extension then reads and writes that file instead of its local store. Two commands on the same Mac take turns writing it; if both Macs change the list at the same moment, the sync service keeps one version.
 
 ## Questions
 

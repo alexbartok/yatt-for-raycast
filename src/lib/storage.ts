@@ -1,9 +1,9 @@
 import { launchCommand, LaunchType, LocalStorage, showToast, Toast } from "@raycast/api";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { useCallback, useEffect, useState } from "react";
-import { loadLocationsFile, saveLocationsFile, type LocationsFile, type StorageBackend } from "../core/store";
+import { fileBackend } from "../core/file-backend";
+import { loadLocationsFile, updateLocationsFile, type LocationsFile, type StorageBackend } from "../core/store";
 import type { Location } from "../core/types";
 import { loadSeed } from "./data";
 import { getPrefs } from "./prefs";
@@ -22,33 +22,13 @@ export function expandHome(p: string): string {
   return path.resolve(p);
 }
 
-function fileBackend(file: string): StorageBackend {
-  const full = expandHome(file.trim());
-  return {
-    read: async () => (existsSync(full) ? readFileSync(full, "utf8") : undefined),
-    write: async (text) => {
-      // Write to a sibling file and rename, so a crash or a sync collision never leaves a torn file.
-      mkdirSync(path.dirname(full), { recursive: true });
-      const tmp = `${full}.${process.pid}.tmp`;
-      writeFileSync(tmp, text, "utf8");
-      renameSync(tmp, full);
-    },
-  };
-}
-
 export function currentBackend(): { backend: StorageBackend; file?: string } {
   const f = getPrefs().locationsFile?.trim();
-  return f ? { backend: fileBackend(f), file: expandHome(f) } : { backend: localBackend };
+  return f ? { backend: fileBackend(expandHome(f)), file: expandHome(f) } : { backend: localBackend };
 }
 
 export async function readLocations(): Promise<LocationsFile> {
   return loadLocationsFile(currentBackend().backend, loadSeed());
-}
-
-/** Saves the list and refreshes the menu bar; returns the menu bar's error text if it could not be refreshed. */
-export async function writeLocations(file: LocationsFile): Promise<string | undefined> {
-  await saveLocationsFile(currentBackend().backend, file);
-  return refreshMenuBar();
 }
 
 /**
@@ -88,9 +68,10 @@ export function useLocations() {
   /** Applies an update to the freshly read file. Shows a toast and rethrows when the write fails. */
   const save = useCallback(async (update: LocationsUpdate): Promise<string | undefined> => {
     const run = async () => {
-      const current = await readLocations();
-      const merged: LocationsFile = { ...current, ...(typeof update === "function" ? update(current) : update) };
-      const menuBarError = await writeLocations(merged);
+      const merged = await updateLocationsFile(currentBackend().backend, loadSeed(), (current) =>
+        typeof update === "function" ? update(current) : update,
+      );
+      const menuBarError = await refreshMenuBar();
       setFile(merged);
       return menuBarError;
     };
