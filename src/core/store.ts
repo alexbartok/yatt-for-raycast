@@ -55,10 +55,10 @@ export function serializeLocationsFile(file: LocationsFile): string {
  * damaged file is reported rather than replaced.
  */
 export async function loadLocationsFile(backend: StorageBackend, seed: Location[]): Promise<LocationsFile> {
-  const text = await backend.read();
-  const current = currentOrSeed(text, seed);
-  if (current.seeded) await backend.write(serializeLocationsFile(current.file));
-  return current.file;
+  const current = currentOrSeed(await backend.read(), seed);
+  if (!current.seeded) return current.file;
+  // Seed under the lock, re-reading inside it: another command may have seeded or written meanwhile.
+  return updateLocationsFile(backend, seed, () => ({}));
 }
 
 /** The stored file, or a seeded one when the store is missing or empty. Throws when the store is damaged. */

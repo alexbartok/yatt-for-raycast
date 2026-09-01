@@ -109,7 +109,7 @@ Open them with ⌘, in Raycast or from the ⌘K menu in Convert Time. Changes ap
 | Copy template and separator | `{time} {code} ({abbr})`, ` / ` |
 | Sort | west to east (or east to west, or the order in Manage Locations) |
 | Business and shoulder hours | 9–18 and 7–21 |
-| Colours for business, shoulder and off hours | Raycast's green, yellow and red for the dots; any hex colour works, which helps if red and green look alike to you |
+| Colours for business, shoulder and off hours | Raycast's green, yellow and red for the dots; any hex colour works (the time text then stays plain), which helps if red and green look alike to you |
 | Hour strip colours | its own green, ochre and a quiet grey for off hours; set them to match the dots if you prefer |
 | Locations file | empty (see below) |
 | Convert Time: default zone, return to root after copying, local row, day/month order | local, on, on, day/month |

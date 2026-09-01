@@ -40,6 +40,15 @@ describe("file backend", () => {
     expect(ids).toHaveLength(3);
   });
 
+  it("treats an iCloud placeholder as not yet available, not as missing", async () => {
+    const target = path.join(dir, "cloud.json");
+    writeFileSync(path.join(dir, ".cloud.json.icloud"), "");
+    const backend = fileBackend(target);
+    await expect(loadLocationsFile(backend, seed)).rejects.toThrow(/iCloud/);
+    await expect(updateLocationsFile(backend, seed, (f) => ({ locations: f.locations }))).rejects.toThrow(/iCloud/);
+    expect(readFileSync(path.join(dir, ".cloud.json.icloud"), "utf8")).toBe("");
+  });
+
   it("refuses to overwrite a damaged file", async () => {
     writeFileSync(path.join(dir, "damaged.json"), "{ nope");
     const backend = fileBackend(path.join(dir, "damaged.json"));

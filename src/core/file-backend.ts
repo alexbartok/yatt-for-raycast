@@ -37,10 +37,16 @@ async function acquireLock(lock: string): Promise<() => void> {
       };
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+      // Take over an abandoned lock by renaming it: only one of several waiters wins the rename, so two
+      // processes can never both conclude the lock is free.
       try {
-        if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS) unlinkSync(lock);
+        if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS) {
+          const stale = `${lock}.${process.pid}.stale`;
+          renameSync(lock, stale);
+          unlinkSync(stale);
+        }
       } catch {
-        /* vanished between checks */
+        /* vanished between checks, or another waiter won the rename */
       }
       if (Date.now() > deadline)
         throw new Error(`Another process is writing ${path.basename(lock.replace(/\.lock$/, ""))}.`);
@@ -56,24 +62,35 @@ async function acquireLock(lock: string): Promise<() => void> {
  * service decides which version wins.
  */
 export function fileBackend(full: string): StorageBackend {
-  const write = (text: string) => {
+  const placeholder = path.join(path.dirname(full), `.${path.basename(full)}.icloud`);
+  const writeRaw = (text: string) => {
     mkdirSync(path.dirname(full), { recursive: true });
     const tmp = `${full}.${process.pid}.tmp`;
     writeFileSync(tmp, text, "utf8");
     renameSync(tmp, full);
   };
-  const read = () => (existsSync(full) ? readFileSync(full, "utf8") : undefined);
+  const read = () => {
+    if (existsSync(full)) return readFileSync(full, "utf8");
+    // iCloud Drive replaces an evicted file with a ".name.icloud" stub; that is not "no file yet".
+    if (existsSync(placeholder)) {
+      throw new Error(
+        "The locations file has not downloaded from iCloud Drive yet. Open its folder in Finder to download it.",
+      );
+    }
+    return undefined;
+  };
+  const locked = async <T>(fn: () => T): Promise<T> => {
+    mkdirSync(path.dirname(full), { recursive: true });
+    const release = await acquireLock(`${full}.lock`);
+    try {
+      return fn();
+    } finally {
+      release();
+    }
+  };
   return {
     read: async () => read(),
-    write: async (text) => write(text),
-    update: async (fn) => {
-      mkdirSync(path.dirname(full), { recursive: true });
-      const release = await acquireLock(`${full}.lock`);
-      try {
-        write(fn(read()));
-      } finally {
-        release();
-      }
-    },
+    write: (text) => locked(() => writeRaw(text)),
+    update: (fn) => locked(() => writeRaw(fn(read()))),
   };
 }
