@@ -52,7 +52,7 @@ Dates matter more than they seem: Europe and North America switch their clocks o
 
 ## Sending a time to one place
 
-Add `to <place>` (or `-> <place>`) to name the place you are converting to: `15 sf to cet`, `thu 17 et -> berlin`, `9-11 utc to tokyo`. The target joins the list even when it is not one of your locations, marked "target" in its subtitle, and the header shows `15:00 San Francisco → Central European Time`. The target can be any place, code, abbreviation, zone name or fixed offset that works on its own.
+Add `to <place>` (or `-> <place>`) to name the place you are converting to: `15 sf to cet`, `thu 17 et -> berlin`, `9-11 utc to tokyo`. The target joins the list at the top even when it is not one of your locations, marked "target" in its subtitle, and the header shows `15:00 San Francisco → Central European Time`. The target can be any place, code, abbreviation, zone name or fixed offset that works on its own.
 
 `to` is still the range separator when it sits between two times (`9 to 17 sf`), so nothing changes for windows.
 

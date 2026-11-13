@@ -187,7 +187,7 @@ export default function Convert(props: LaunchProps<{ arguments: { expression?: s
       );
     }
     const targetId = resolved.target?.location?.id ?? resolved.target?.transient?.id;
-    return indexed.map(({ location, transient }) => {
+    const rows = indexed.map(({ location, transient }) => {
       const isTarget =
         resolved.target !== undefined && (targetId ? location.id === targetId : location.tz === resolved.target.tz);
       const w = wallParts(resolved.start, location.tz);
@@ -220,6 +220,11 @@ export default function Convert(props: LaunchProps<{ arguments: { expression?: s
         date: v.date,
       };
     });
+
+    // The target is the answer the query asked for, so it goes first even when the sort would put it elsewhere.
+    const targetIndex = rows.findIndex((row) => row.isTarget);
+    if (targetIndex > 0) rows.unshift(rows.splice(targetIndex, 1)[0]);
+    return rows;
   }, [configured, localRow, resolved, prefs, anchorTz]);
 
   const anchorText = formatWindow(resolved.start, resolved.end, anchorTz, prefs.timeFormat);
