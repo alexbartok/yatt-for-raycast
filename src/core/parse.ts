@@ -58,6 +58,32 @@ function toTime(m: RegExpMatchArray, base: number): TimeOfDay | null {
   return { h, m: min };
 }
 
+/** Parses "utc+2" / "gmt-5:30" into minutes from UTC; undefined for anything else. */
+export function parseFixedOffsetToken(query: string): number | undefined {
+  const m = /^(?:utc|gmt|z)\s*([+-])\s*(\d{1,2})(?::?(\d{2}))?$/.exec(query.trim().toLowerCase());
+  if (!m) return undefined;
+  const sign = m[1] === "-" ? -1 : 1;
+  return sign * (Number(m[2]) * 60 + Number(m[3] ?? 0));
+}
+
+/**
+ * Splits an explicit target off the end: "9am pst to cet" → "9am pst" + "cet". `to` is also the
+ * range separator ("9 to 17 sf"), so it only counts as a target when the right side names a place:
+ * no digits, except fixed offsets such as "utc+2".
+ */
+function takeTarget(input: string): { rest: string; target?: string } {
+  const s = input.replace(/\s*(?:->|=>|→|⇒)\s*/g, " to ").replace(/(\d)\s*to\s+/g, "$1 to ");
+  const index = s.lastIndexOf(" to ");
+  if (index < 0) return { rest: s };
+  const left = s.slice(0, index).trim();
+  const right = s.slice(index + 4).trim();
+  if (!right) return { rest: s };
+  const timeWord = /^(noon|midnight)$/.test(right);
+  if (timeWord || (/\d/.test(right) && parseFixedOffsetToken(right) === undefined)) return { rest: s };
+  // "now to tokyo": "now" just means the clock, which is already the default.
+  return { rest: left.replace(/\b(?:right )?now\b/g, " ").trim(), target: right };
+}
+
 export function parseExpression(raw: string): ParsedExpression {
   const out: ParsedExpression = { errors: [] };
   let s = raw
@@ -67,6 +93,11 @@ export function parseExpression(raw: string): ParsedExpression {
     .replace(/(\d)(?!am|pm|h\b|hr|hours?|m\b|min|to\b)(z|[a-z]{2,5})\b/g, "$1 $2")
     .replace(/\s+/g, " ")
     .trim();
+  if (!s) return out;
+
+  const target = takeTarget(s);
+  s = target.rest;
+  if (target.target) out.targetQuery = target.target;
   if (!s) return out;
 
   const take = (re: RegExp, fn: (m: RegExpMatchArray) => boolean | void) => {

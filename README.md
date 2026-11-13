@@ -33,6 +33,7 @@ Start with a time. Add a place, an end time and a date as you need them, in any 
 | `tomorrow 15 sf`, `thu 15 sf` | another day |
 | `29 oct 15 sf`, `2026-10-29 15 sf`, `29/10 15 sf` | a specific date |
 | `15 utc+2` | a fixed offset |
+| `15 sf to cet` | 15:00 San Francisco, in Central European Time |
 | `sf` | the current time in San Francisco |
 | *(nothing)* | the current time everywhere, ticking |
 
@@ -49,6 +50,12 @@ Your own locations are checked first, then a built-in list of 140,000 places, th
 
 Dates matter more than they seem: Europe and North America switch their clocks on different weeks, and for that week "same time next Thursday" is off by an hour. `thu 17 et` gets it right.
 
+## Sending a time to one place
+
+Add `to <place>` (or `-> <place>`) to name the place you are converting to: `15 sf to cet`, `thu 17 et -> berlin`, `9-11 utc to tokyo`. The target joins the list even when it is not one of your locations, marked "target" in its subtitle, and the header shows `15:00 San Francisco → Central European Time`. The target can be any place, code, abbreviation, zone name or fixed offset that works on its own.
+
+`to` is still the range separator when it sits between two times (`9 to 17 sf`), so nothing changes for windows.
+
 ## Reading the rows
 
 Each row is one location, sorted west to east.
@@ -56,7 +63,7 @@ Each row is one location, sorted west to east.
 - The **coloured dot** shows whether that's a reasonable hour there: green for 9–18, yellow for the shoulders (7–9 and 18–21), red for the middle of the night. The hours are yours to change.
 - The **time** or window, right-aligned so the column is easy to scan.
 - The **zone abbreviation** (`PDT`, `CEST`).
-- The **offset** from the place you typed (`−9h`). That place is marked "anchor" in its subtitle.
+- The **offset** from the place you typed (`−9h`). That place is marked "anchor" in its subtitle; an explicit `to` target is marked "target".
 - A red **+1d** or **−1d** when that row has already crossed midnight.
 
 Press ⌘I for the **hour strip**: one column per location, one row per hour, with your window as a band across all columns. A row where every column is green is a time that works for everyone.
@@ -78,6 +85,9 @@ The format is a template you can change in Settings. `{time} {code} ({abbr})` is
 | ⌘⇧← / ⌘⇧→ | 15 minutes earlier / later |
 | ⌘⇧↑ / ⌘⇧↓ | the day before / after |
 | ⌘⇧Enter | make the selected row the anchor ("and what if Tokyo says 9?") |
+| ⌘⇧W | swap the anchor and the `to` target, keeping the same instant |
+| ⌘⇧A | show every zone at that instant, sorted west to east |
+| ⌘⇧I / ⌘⇧T | copy ISO 8601 / the Unix timestamp |
 | ⌘I | show or hide the hour strip |
 | ⌃X | remove the selected location |
 | ⌘⇧M | open Manage Locations |

@@ -140,6 +140,20 @@ describe("resolve", () => {
     expect(r("utc+2 9 sf").errors).toContain("one zone at a time");
   });
 
+  it("explicit target", () => {
+    const x = r("9 sf to cet");
+    expect(x.errors).toEqual([]);
+    expect(x.anchor.tz).toBe("America/Los_Angeles");
+    expect(x.target?.tz).toBe("Europe/Berlin");
+    expect(wallParts(x.start, "America/Los_Angeles").h).toBe(9);
+    expect(wallParts(x.start, "Europe/Berlin").h).toBe(18);
+
+    expect(r("9 sf to jst").target?.tz).toBe("Asia/Tokyo");
+    expect(r("9 sf to utc+2").target?.tz).toBe("Etc/GMT-2");
+    expect(r("9 sf to nowhere").errors[0]).toMatch(/unknown place/);
+    expect(r("9 sf to tokyo", { lookup: () => ({ tz: "Asia/Tokyo", label: "Tokyo" }) }).target?.tz).toBe("Asia/Tokyo");
+  });
+
   it("fixed offsets and unknown places", () => {
     expect(r("19 utc+2").anchor.tz).toBe("Etc/GMT-2");
     expect(r("19 tokyo").errors[0]).toMatch(/unknown place/);

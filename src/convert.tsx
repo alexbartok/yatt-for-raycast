@@ -25,6 +25,7 @@ import { resolve } from "./core/resolve";
 import { stripMarkdown } from "./core/strip";
 import { addDays, wallParts, wallToInstant, zoneOffset } from "./core/time";
 import type { Location, ZoneTarget } from "./core/types";
+import { AllZones } from "./all-zones";
 import { loadDataset, loadZones, zoneInfo } from "./lib/data";
 import { currentZoneToken, formatExpression, zoneTokenFor } from "./lib/expression";
 import { getPrefs, localZone } from "./lib/prefs";
@@ -34,6 +35,8 @@ import { flag, locationCode, locationSubtitle, shadeIcon, shadeTextColor, SHADE_
 type Row = {
   location: Location;
   transient: boolean;
+  /** The place named after "to", when the expression has one. */
+  isTarget: boolean;
   shade: Shade;
   text: string;
   abbr: string;
@@ -167,6 +170,14 @@ export default function Convert(props: LaunchProps<{ arguments: { expression?: s
     if (t && !hideLocal && !list.some((r) => r.location.id === t.id)) {
       list.push({ location: t, transient: true });
     }
+    // The explicit target joins the list even when it is not configured; a configured one is already there.
+    const targetLocation = resolved.target?.location ?? resolved.target?.transient;
+    if (
+      targetLocation &&
+      !list.some((r) => r.location.id === targetLocation.id || r.location.tz === targetLocation.tz)
+    ) {
+      list.push({ location: targetLocation, transient: true });
+    }
     const indexed = list.map((r, i) => ({ ...r, i }));
     if (prefs.sortOrder !== "manual") {
       const dir = prefs.sortOrder === "offsetDesc" ? -1 : 1;
@@ -175,7 +186,10 @@ export default function Convert(props: LaunchProps<{ arguments: { expression?: s
           dir * (zoneOffset(resolved.start, a.location.tz) - zoneOffset(resolved.start, b.location.tz)) || a.i - b.i,
       );
     }
+    const targetId = resolved.target?.location?.id ?? resolved.target?.transient?.id;
     return indexed.map(({ location, transient }) => {
+      const isTarget =
+        resolved.target !== undefined && (targetId ? location.id === targetId : location.tz === resolved.target.tz);
       const w = wallParts(resolved.start, location.tz);
       const startHour = w.h + w.min / 60;
       const biz = location.businessHours ?? prefs.business;
@@ -194,7 +208,17 @@ export default function Convert(props: LaunchProps<{ arguments: { expression?: s
         fmt: prefs.timeFormat,
         shade,
       });
-      return { location, transient, shade, text: v.time, abbr: v.abbr, offset: v.offset, day: v.day, date: v.date };
+      return {
+        location,
+        transient,
+        isTarget,
+        shade,
+        text: v.time,
+        abbr: v.abbr,
+        offset: v.offset,
+        day: v.day,
+        date: v.date,
+      };
     });
   }, [configured, localRow, resolved, prefs, anchorTz]);
 
@@ -204,6 +228,7 @@ export default function Convert(props: LaunchProps<{ arguments: { expression?: s
   const header = useMemo(() => {
     let h = `${formatDate(resolved.start, anchorTz)} · ${anchorText} ${resolved.anchor.label}`;
     if (resolved.end !== undefined) h += ` · ${formatDuration(resolved.end - resolved.start)}`;
+    if (resolved.target && resolved.target.tz !== resolved.anchor.tz) h += ` → ${resolved.target.label}`;
     if (resolved.live) h += " · now";
     if (resolved.ambiguous.length) h += ` · or ${resolved.ambiguous.map((l) => l.label).join(" / ")}? type more`;
     if (resolved.errors.length) h += ` · ${resolved.errors.join(", ")}`;
@@ -315,6 +340,27 @@ export default function Convert(props: LaunchProps<{ arguments: { expression?: s
     }
   };
 
+  /** Token that resolves back to a target: the typed alias, a configured alias, or the IANA name. */
+  const tokenFor = (z: ZoneTarget) => {
+    const l = z.location ?? z.transient;
+    return l ? zoneTokenFor(l) : z.tz;
+  };
+
+  /** Turn the target into the anchor and the anchor into the target, keeping the same instant. */
+  const swap = () => {
+    const t = resolved.target;
+    if (!t) return;
+    const text = formatExpression({
+      start: resolved.start,
+      end: resolved.end,
+      tz: t.tz,
+      now: Date.now(),
+      parsed,
+      zoneToken: tokenFor(t),
+    });
+    setText(`${text} to ${tokenFor(resolved.anchor)}`);
+  };
+
   const addLocation = async (l: Location) => {
     const added = { ...l, id: l.id === LOCAL_ID ? `tz:${l.tz}` : l.id };
     try {
@@ -406,7 +452,7 @@ export default function Convert(props: LaunchProps<{ arguments: { expression?: s
               subtitle={
                 showDetail
                   ? undefined
-                  : `${flag(row.location.country)} ${row.transient && row.location.id !== LOCAL_ID ? "not in your list" : locationSubtitle(row.location)}${isAnchorRow ? " · anchor" : ""}`.trim()
+                  : `${flag(row.location.country)} ${row.transient && row.location.id !== LOCAL_ID ? "not in your list" : locationSubtitle(row.location)}${isAnchorRow ? " · anchor" : ""}${row.isTarget ? " · target" : ""}`.trim()
               }
               accessories={accessories}
               detail={<List.Item.Detail markdown={strip} />}
@@ -420,6 +466,39 @@ export default function Convert(props: LaunchProps<{ arguments: { expression?: s
                       icon={Icon.Pin}
                       shortcut={{ modifiers: ["cmd", "shift"], key: "return" }}
                       onAction={() => reanchor(row)}
+                    />
+                    {resolved.target && (
+                      <Action
+                        title="Swap Zones"
+                        icon={Icon.Switch}
+                        shortcut={{ modifiers: ["cmd", "shift"], key: "w" }}
+                        onAction={swap}
+                      />
+                    )}
+                    <Action.Push
+                      title="Show All Zones"
+                      icon={Icon.Globe}
+                      shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
+                      target={
+                        <AllZones
+                          start={resolved.start}
+                          end={resolved.end}
+                          anchorTz={anchorTz}
+                          anchorLabel={resolved.anchor.label}
+                          fmt={prefs.timeFormat}
+                          zones={zones}
+                        />
+                      }
+                    />
+                    <Action.CopyToClipboard
+                      title="Copy ISO 8601"
+                      content={new Date(resolved.start).toISOString()}
+                      shortcut={{ modifiers: ["cmd", "shift"], key: "i" }}
+                    />
+                    <Action.CopyToClipboard
+                      title="Copy Unix Timestamp"
+                      content={String(Math.floor(resolved.start / 1000))}
+                      shortcut={{ modifiers: ["cmd", "shift"], key: "t" }}
                     />
                   </ActionPanel.Section>
                   <ActionPanel.Section title="Adjust">
