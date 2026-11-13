@@ -42,6 +42,8 @@ export type ParsedExpression = {
   dateToken?: string;
   /** Leftover words naming a zone or place, e.g. "new york" or "cest". */
   zoneQuery?: string;
+  /** Words after "to" naming the place to convert to, e.g. "cet" in "9 sf to cet". */
+  targetQuery?: string;
   /** Fixed offset in minutes from tokens like "utc+2" / "gmt-5:30". */
   fixedOffset?: number;
   /** Words the parser could not classify, in input order. */
@@ -89,6 +91,8 @@ export type ZoneTarget = {
 
 export type Resolved = {
   anchor: ZoneTarget;
+  /** Explicit place to convert to ("9 sf to cet"), when the expression names one. */
+  target?: ZoneTarget;
   /** Instant (ms since epoch). */
   start: number;
   /** Instant (ms); present for windows. */

@@ -1,5 +1,12 @@
 # Yet Another Timezone Tool Changelog
 
+## [Target zone, all zones and timestamps] - {PR_MERGE_DATE}
+
+- Convert to a named place with `to <place>` / `-> <place>` (`15 sf to cet`), even when it is not in your locations
+- Swap the anchor and the target with ⌘⇧W
+- Show every zone at the converted instant with ⌘⇧A
+- Copy ISO 8601 (⌘⇧I) or a Unix timestamp (⌘⇧T)
+
 ## [Initial Version] - 2026-10-16
 
 - Convert Time: type a time, a window or a date with a place and see it in every location; colour-coded rows; copy one row or all; hour strip; nudge and re-anchor keys.

@@ -1,6 +1,7 @@
 import type { DateSpec, Location, ParsedExpression, Resolved, ZoneTarget } from "./types";
 import type { ZoneInfo } from "./dataset";
 import { fold } from "./text";
+import { parseFixedOffsetToken } from "./parse";
 import { daysInMonth, fixedOffsetZone, isValidZone, wallParts, wallToInstant } from "./time";
 
 export type ResolveContext = {
@@ -118,9 +119,22 @@ function shift(base: { y: number; m: number; d: number }, days: number) {
   return { y: x.getUTCFullYear(), m: x.getUTCMonth() + 1, d: x.getUTCDate() };
 }
 
+/** Resolves a target token: a configured place, a dataset hit, an IANA name, an abbreviation or a fixed offset. */
+function resolveTarget(query: string, ctx: ResolveContext): ZoneTarget | undefined {
+  const fixed = parseFixedOffsetToken(query);
+  if (fixed !== undefined) {
+    const tz = fixedOffsetZone(fixed);
+    return tz ? zoneTarget(tz, `UTC${fixed >= 0 ? "+" : "−"}${Math.abs(fixed) / 60}`) : undefined;
+  }
+  const hit = matchLocations(query, ctx.locations, ctx.zones)[0];
+  if (hit) return { tz: hit.location.tz, label: hit.location.label, location: hit.location };
+  return matchZone(query, ctx.zones) ?? ctx.lookup?.(query);
+}
+
 export function resolve(parsed: ParsedExpression, ctx: ResolveContext): Resolved {
   const errors = [...parsed.errors];
   let anchor: ZoneTarget = ctx.fallback;
+  let target: ZoneTarget | undefined;
   let ambiguous: Location[] = [];
   let date = parsed.date;
 
@@ -164,6 +178,11 @@ export function resolve(parsed: ParsedExpression, ctx: ResolveContext): Resolved
     }
   }
 
+  if (parsed.targetQuery) {
+    target = resolveTarget(parsed.targetQuery, ctx);
+    if (!target) errors.push(`unknown place "${parsed.targetQuery}"`);
+  }
+
   const resolvedDate = resolveDate(date, ctx.now, anchor.tz, ctx.dateOrder);
   if (!resolvedDate) errors.push("invalid date");
   const day = resolvedDate ?? resolveDate(undefined, ctx.now, anchor.tz, ctx.dateOrder)!;
@@ -187,5 +206,5 @@ export function resolve(parsed: ParsedExpression, ctx: ResolveContext): Resolved
   } else if (parsed.duration !== undefined) {
     end = start + parsed.duration * 60000;
   }
-  return { anchor, start, end, live, ambiguous, errors };
+  return { anchor, target, start, end, live, ambiguous, errors };
 }

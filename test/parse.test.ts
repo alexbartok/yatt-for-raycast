@@ -22,6 +22,35 @@ describe("parseExpression", () => {
     expect(p("midnight").start).toEqual({ h: 0, m: 0 });
   });
 
+  it("explicit target after to", () => {
+    const x = p("9am pst to cet");
+    expect(x.zoneQuery).toBe("pst");
+    expect(x.targetQuery).toBe("cet");
+    expect(x.start).toEqual({ h: 9, m: 0 });
+
+    expect(p("9-17 sf to cet")).toMatchObject({ targetQuery: "cet", zoneQuery: "sf" });
+    expect(p("9 sf -> utc+2").targetQuery).toBe("utc+2");
+    expect(p("9to cet")).toMatchObject({ targetQuery: "cet", start: { h: 9, m: 0 } });
+  });
+
+  it("to still separates ranges", () => {
+    const x = p("9 to 17 sf");
+    expect(x.targetQuery).toBeUndefined();
+    expect(x.start).toEqual({ h: 9, m: 0 });
+    expect(x.end).toEqual({ h: 17, m: 0 });
+    expect(x.zoneQuery).toBe("sf");
+
+    expect(p("9am to 5pm").targetQuery).toBeUndefined();
+    expect(p("9 tokyo").targetQuery).toBeUndefined();
+  });
+
+  it("now before to only means the clock", () => {
+    const x = p("now to tokyo");
+    expect(x.targetQuery).toBe("tokyo");
+    expect(x.zoneQuery).toBeUndefined();
+    expect(x.start).toBeUndefined();
+  });
+
   it("invalid times are errors", () => {
     expect(p("25").errors.length).toBe(1);
     expect(p("1990").errors.length).toBe(1);
